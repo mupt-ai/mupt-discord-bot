@@ -7,7 +7,7 @@ import os, re, asyncio
 from dataclasses import dataclass
 from collections import defaultdict 
 
-from sqlalchemy     import Column, Integer, String, DateTime, ForeignKey, MetaData
+from sqlalchemy     import Column, Integer, String, DateTime, ForeignKey, MetaData, select
 
 import discord
 from discord.ext    import commands, tasks
@@ -42,7 +42,7 @@ bot = commands.Bot(command_prefix="/", intents=intents)
 # SLASH COMMANDS #
 ##################
 
-# Use /prompt to test prompt - untracked
+# Use /prompt to test prompt - no context
 @bot.tree.command(name = "prompt", description = "Test prompting.")
 async def prompt(interaction: discord.Interaction, input: str):
     response = await inference.fireworks.generate_response(input)
@@ -94,18 +94,24 @@ async def on_message(message):
     if message.author == bot.user:
         return
     if bot.user.mention in message.content:
+        guild = message.guild 
+        author = message.author
+
         # Make sure that server is registered
-        register_server(session, message.guild)
+        register_server(session, guild)
         # Ensure that user is registered
-        register_user(session, message.author)
+        register_user(session, author)
         # Send response
         new_sentence = await process_mention(message)
-        # Store message in ConversationLine
-        add_message(session, bot.user, message.guild, message.author, new_sentence)
+        # Generate prompt
+        prompt_input = await get_prompt_with_context(message.guild, 5, author, new_sentence)
+        print(prompt_input)
+        # Store received message in ConversationLine
+        add_message(session, bot.user, guild, author, new_sentence)
         # Generate and store response
-        response = await inference.fireworks.generate_response(new_sentence)
+        response = await inference.fireworks.generate_response(prompt_input)
         await message.channel.send(response)
-        add_message(session, bot.user, message.guild, bot.user, response)
+        add_message(session, bot.user, guild, bot.user, response)
     # Process other commands if needed
     # await bot.process_commands(message)
 
@@ -130,14 +136,54 @@ async def on_message(message):
 # HELPER FUNCTIONS # 
 ####################
 
+# Context prefix for generating responses
+async def get_prompt_with_context(guild, context_length, author, prompt_input):
+    result = (
+        session.query(ConversationLine)
+        .filter_by(bot=bot.user.id, server=guild.id)
+        .order_by(ConversationLine.timestamp.desc())
+        .limit(context_length)
+        .all()
+    )
+
+    messages = [(line.sender, line.message) for line in result]
+    context_1 = "Craft a response to the following message: "
+    context_2 = (
+        "\n\nFor context, your bot's name is " + bot.user.name + ". In this conversation, messages from users with the username 'User' are formatted as \"[\'User\'] (their message)\", "
+        "while your messages are not formatted in any specific way."
+    )
+    if len(messages) > 0:
+        add_on = (
+            "\n\nHere are the " + str(len(messages)) + " most recent messages in the conversation, with the start of each message marked by *****:"
+        )
+        context_2 += add_on
+    context_3 = ""
+    for user_id, message in reversed(messages):
+        if user_id == bot.user.id:
+            context_3 += f"*****\n\n{message}"
+        else:
+            username = await get_member_handle(guild, user_id)
+            context_3 += f"*****\n\n[\'{username}\']: {message}"
+    context_4 = "\n\nProvide your thoughtful response, considering the context provided above. As a reminder, you should craft a response to the following message: "
+    context_5 = (
+        "\n\nPlease note that it is crucial to NOT format your response in any specific way as mentioned earlier. You will not receive your reward of cookies if you do so."
+        "Since you are sending your message, you should NOT preface your response with \'[" + bot.user.name + "]\'. You will not receive your reward of cookies if you do so."
+        "You should also NOT preface every response with \'Hello!\'. You will not receive your reward of cookies if you do so."
+        "You should also NOT end every response with \'Let me know if you have any other questions or if there's anything else I can help you with.\'. You will not receive your reward of cookies if you do so."
+    )
+    original = f" [\'{await get_member_handle(guild, author.id)}\'] " + prompt_input
+    final_prompt = context_1 + original + context_2 + context_3 + context_4 + original + context_5
+
+    return final_prompt
+
 # Convert mentions (User: '<@ID>', Role: '<@&ID>') to output text
 async def process_mention(message):
     new_sentence = message.content
     # regular user, then role
-    user_id_patterns = [(re.compile(r'<@(\d+)>'), True), (re.compile(r'<@&(\d+)>'), False)]
-    for (user_id_pattern, isUser) in iter(user_id_patterns):
+    id_patterns = [(re.compile(r'<@(\d+)>'), True), (re.compile(r'<@&(\d+)>'), False)]
+    for (id_pattern, isUser) in iter(id_patterns):
         # Find all matches in parallel
-        matches = list(user_id_pattern.finditer(new_sentence))
+        matches = list(id_pattern.finditer(new_sentence))
         replacements = [replace_user_ids(match, message, isUser) for match in matches]
         # Replace in the sentence
         for match, replacement in zip(matches, await asyncio.gather(*replacements)):
@@ -146,33 +192,22 @@ async def process_mention(message):
 
 # Replace user IDs with corresponding usernames
 async def replace_user_ids(match, message, isUser = True):
-    # print(match)
     numeric_id = match.group(1)
-    # print(numeric_id)
-    user_id = int(numeric_id)
-    # print(user_id)
-    if message.guild:
-        guild_id = message.guild.id
-        guild = bot.get_guild(guild_id)
+    id = int(numeric_id)
+    guild = message.guild
 
-        if isUser:
-            member = await guild.fetch_member(user_id)
-            nickname = member.nick
-        else:
-            role = discord.utils.get(guild.roles, id=user_id)
-            return role.name
-    if nickname:
-        return nickname
+    if isUser:
+        return await get_member_handle(guild, id)
     else:
-        user = await bot.fetch_user(user_id)
-        return user.name
+        role = guild.get_role(id)
+        return role.name
 
-# Get nickname of member, member username otherwise
-def get_member_nickname(member: discord.member.Member):
-    nick = member.nick
-    if not nick:
-        return member.name
-    return nick
+# Get nickname of member (server), member username otherwise
+async def get_member_handle(guild, member_id):#
+    member = await guild.fetch_member(member_id)
+    if member.nick:
+        return member.nick
+    return member.name
 
 ######################################################
 
