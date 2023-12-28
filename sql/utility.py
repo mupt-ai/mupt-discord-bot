@@ -1,10 +1,18 @@
-import os
-import sqlalchemy
+import os, sqlalchemy, pg8000, discord
+
+from sqlalchemy.orm import sessionmaker, session
+from sqlalchemy.ext.declarative import declarative_base
 from google.cloud.sql.connector import Connector, IPTypes
-import pg8000
 
+from .models import *
 
-def connect_with_connector() -> sqlalchemy.engine.base.Engine:
+######################################################
+
+#######################
+# SQL SETUP FUNCTIONS # 
+#######################
+
+def connect_with_connector(echo = False) -> sqlalchemy.engine.base.Engine:
     """
     Initializes a connection pool for a Cloud SQL instance of MySQL.
     Uses the Cloud SQL Python Connector package.
@@ -39,24 +47,73 @@ def connect_with_connector() -> sqlalchemy.engine.base.Engine:
     pool = sqlalchemy.create_engine(
         "postgresql+pg8000://",
         creator=getconn,
-        # ...
+        echo=echo
     )
     return pool
 
-# # Create a new user (replace this with your user identification logic)
-# user = User(username='example_user')
+def setup(echo):
+    engine = connect_with_connector(echo)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    Base.metadata.create_all(bind=engine)
+    session.commit()
+    return engine, session 
 
-# # Use a context manager for the session
-# with Session() as session:
-#     session.add(user)
-#     session.commit()
+###################
+# DB MANIPULATION #
+###################
 
-#     try:
-#         all_users = session.query(User).all()
+def check_user_registered(session: session.Session, user: discord.member.Member):
+    return session.query(User).filter_by(discord_id=user.id).first() is not None
 
-#         # Display user information
-#         for user in all_users:
-#             print(f"User ID: {user.id}, Username: {user.username}")
+def register_user(session: session.Session, user: discord.member.Member):
+    if not check_user_registered(session, user):
+        session.add(User(discord_id=user.id))
+        session.commit()
+        return True
+    return False 
 
-#     except Exception as e:
-#         print(f"Error fetching data: {e}")
+def check_bot_registered(session: session.Session, bot: discord.user.ClientUser):
+    return session.query(Bot).filter_by(discord_id=bot.id).first() is not None
+
+def register_bot(session: session.Session, bot: discord.user.ClientUser):
+    entry = session.query(Bot).filter_by(discord_id=bot.id).first()
+    if entry is None:
+        session.add(Bot(user=str(bot), username=bot.name, discord_id=bot.id))
+        session.commit()
+        return True
+    # Update to latest username
+    if entry is not None and entry.username != bot.name:
+        entry.user = str(bot)
+        entry.username = bot.name
+        session.commit()
+        return True
+    return False
+
+def check_server_registered(session: session.Session, server: discord.guild.Guild):
+    return session.query(Server).filter_by(discord_id=server.id).first() is not None
+
+def register_server(session: session.Session, server: discord.guild.Guild):
+    entry = session.query(Server).filter_by(discord_id=server.id).first()
+    if entry is None:
+        session.add(Server(name=server.name, discord_id=server.id))
+        session.commit()
+        return True
+    # Update to latest servername
+    if entry is not None and entry.name != server.name:
+        entry.name = server.name
+        session.commit()
+        return True
+    return False 
+
+def add_message(session: session.Session, bot: discord.user.ClientUser,
+                server: discord.guild.Guild, sender, message: str):
+    try:
+        line = ConversationLine(bot=bot.id, server=server.id, 
+                            sender=sender.id, message=message)
+        session.add(line)
+        session.commit()
+        return True
+
+    except Exception as e:
+        return False

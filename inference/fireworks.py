@@ -5,7 +5,8 @@ import fireworks.client
 
 fireworks.client.api_key = os.environ["FIREWORKS_CLIENT_API_KEY"]
 
-async def generate_response_fireworks(prompt: str):
+async def generate_response(prompt: str, context=True):
+    context_message = ""
     response_generator = fireworks.client.ChatCompletion.create(
         model="accounts/fireworks/models/mistral-7b-instruct-4k",
         messages=[
