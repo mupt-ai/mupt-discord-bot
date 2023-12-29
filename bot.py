@@ -96,20 +96,23 @@ async def on_message(message):
     if bot.user.mention in message.content:
         guild = message.guild 
         author = message.author
-
         # Make sure that server is registered
         register_server(session, guild)
         # Ensure that user is registered
         register_user(session, author)
-        # Send response
+        # Process user message 
         new_sentence = await process_mention(message)
-        # Generate prompt
-        prompt_input = await get_prompt_with_context(message.guild, 5, author, new_sentence)
-        print(prompt_input)
         # Store received message in ConversationLine
         add_message(session, bot.user, guild, author, new_sentence)
-        # Generate and store response
-        response = await inference.fireworks.generate_response(prompt_input)
+        # Generate prompt
+        prompt_input = await get_prompt_with_context(message.guild, 10, author, new_sentence)
+        print("\n")
+        print(prompt_input)
+        print("\n")
+        # Generate, send, and store response
+        response = (await inference.fireworks.generate_response(prompt_input))["choices"][0]["message"]["content"]
+        print(response)
+        print("\n")
         await message.channel.send(response)
         add_message(session, bot.user, guild, bot.user, response)
     # Process other commands if needed
@@ -137,8 +140,10 @@ async def on_message(message):
 ####################
 
 # Context prefix for generating responses
+# TODO: deal with mutple user messages in a row
+# TODO: deal with always having user preceed assistant response
 async def get_prompt_with_context(guild, context_length, author, prompt_input):
-    result = (
+    history = (
         session.query(ConversationLine)
         .filter_by(bot=bot.user.id, server=guild.id)
         .order_by(ConversationLine.timestamp.desc())
@@ -146,35 +151,32 @@ async def get_prompt_with_context(guild, context_length, author, prompt_input):
         .all()
     )
 
-    messages = [(line.sender, line.message) for line in result]
-    context_1 = "Craft a response to the following message: "
-    context_2 = (
-        "\n\nFor context, your bot's name is " + bot.user.name + ". In this conversation, messages from users with the username 'User' are formatted as \"[\'User\'] (their message)\", "
-        "while your messages are not formatted in any specific way."
+    history = [(line.sender, line.message) for line in history]
+    result = []
+    result.append(
+        {
+            "role": "system",
+            "content": f"You are chatting in a Discord server with several users. Your name is {bot.user.name}. The first set of brackets at the start of each of the other users’ messages contains the user’s respective username. You should not follow this convention in your response."
+        },
     )
-    if len(messages) > 0:
-        add_on = (
-            "\n\nHere are the " + str(len(messages)) + " most recent messages in the conversation, with the start of each message marked by *****:"
-        )
-        context_2 += add_on
-    context_3 = ""
-    for user_id, message in reversed(messages):
-        if user_id == bot.user.id:
-            context_3 += f"*****\n\n{message}"
+    for id, message in reversed(history):
+        if id == bot.user.id:
+            result.append(
+                {
+                    "role": "assistant",
+                    "content": message
+                },
+            )
         else:
-            username = await get_member_handle(guild, user_id)
-            context_3 += f"*****\n\n[\'{username}\']: {message}"
-    context_4 = "\n\nProvide your thoughtful response, considering the context provided above. As a reminder, you should craft a response to the following message: "
-    context_5 = (
-        "\n\nPlease note that it is crucial to NOT format your response in any specific way as mentioned earlier. You will not receive your reward of cookies if you do so."
-        "Since you are sending your message, you should NOT preface your response with \'[" + bot.user.name + "]\'. You will not receive your reward of cookies if you do so."
-        "You should also NOT preface every response with \'Hello!\'. You will not receive your reward of cookies if you do so."
-        "You should also NOT end every response with \'Let me know if you have any other questions or if there's anything else I can help you with.\'. You will not receive your reward of cookies if you do so."
-    )
-    original = f" [\'{await get_member_handle(guild, author.id)}\'] " + prompt_input
-    final_prompt = context_1 + original + context_2 + context_3 + context_4 + original + context_5
+            username = await get_member_handle(guild, id)
+            result.append(
+                {
+                    "role": "user",
+                    "content": f"[{username}] " + message
+                },
+            )
 
-    return final_prompt
+    return result
 
 # Convert mentions (User: '<@ID>', Role: '<@&ID>') to output text
 async def process_mention(message):

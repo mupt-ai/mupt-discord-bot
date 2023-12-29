@@ -1,32 +1,34 @@
+import requests
 import os
-import fireworks
-import fireworks.client
+import json
 
+fireworks_key = os.environ["FIREWORKS_CLIENT_API_KEY"]
+url = "https://api.fireworks.ai/inference/v1/chat/completions"
 
-fireworks.client.api_key = os.environ["FIREWORKS_CLIENT_API_KEY"]
+async def generate_response(prompt_input):
+    payload = {
+        "messages": prompt_input,
+        "temperature": 1,
+        "top_p": 1,
+        "n": 1,
+        "frequency_penalty": 0,
+        "presence_penalty": 0,
+        "stream": False,
+        "max_tokens": 1000,
+        "stop": None,
+        "prompt_truncate_len": 1500,
+        "model": "accounts/fireworks/models/mistral-7b-instruct-4k"
+    }
+    headers = {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "authorization": f"Bearer {fireworks_key}"
+    }
 
-async def generate_response(prompt: str):
-    context_message = ""
-    response_generator = fireworks.client.ChatCompletion.create(
-        model="accounts/fireworks/models/mistral-7b-instruct-4k",
-        messages=[
-            {
-            "role": "user",
-            "content": prompt,
-            }
-        ],
-        stream=True,
-        n=1,
-        max_tokens=1000,
-        temperature=0.1,
-        top_p=0.9, 
-        stop=[],
-    )
-    
-    response = ""
+    response = requests.post(url, json=payload, headers=headers)
 
-    for chunk in response_generator:
-        if chunk.choices[0].delta.content is not None:
-            response += chunk.choices[0].delta.content
-    
-    return response
+    print('\n')
+    print(response.text)
+    print('\n')
+
+    return json.loads(response.text)
