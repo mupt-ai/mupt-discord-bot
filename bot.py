@@ -45,7 +45,13 @@ bot = commands.Bot(command_prefix="/", intents=intents)
 # Use /prompt to test prompt - no context
 @bot.tree.command(name = "prompt", description = "Test prompting.")
 async def prompt(interaction: discord.Interaction, input: str):
-    response = await inference.fireworks.generate_response(input)
+    result = [
+        {
+            "role": "user",
+            "content": input 
+        },
+    ]
+    response = (await inference.fireworks.generate_response(result))["choices"][0]["message"]["content"]
     await interaction.response.send_message(response)
 
 # Manually register server to database
@@ -140,8 +146,10 @@ async def on_message(message):
 ####################
 
 # Context prefix for generating responses
-# TODO: deal with mutple user messages in a row
-# TODO: deal with always having user preceed assistant response
+# Note:
+#   - Has to alternate between user and assistant messages
+#   - First message in log has to be from user
+# TODO: stress test (could await affect)
 async def get_prompt_with_context(guild, context_length, author, prompt_input):
     history = (
         session.query(ConversationLine)
@@ -156,25 +164,37 @@ async def get_prompt_with_context(guild, context_length, author, prompt_input):
     result.append(
         {
             "role": "system",
-            "content": f"You are chatting in a Discord server with several users. Your name is {bot.user.name}. The first set of brackets at the start of each of the other users’ messages contains the user’s respective username. You should not follow this convention in your response."
+            "content": f"You are chatting in a Discord server with several users. Your name is {bot.user.name}. The first set of brackets at the start of each of the other users’ messages contains the user’s respective username. You should not follow this convention in your response. You should also not format other users' usernames to be inside brackets in your response."
         },
     )
-    for id, message in reversed(history):
+    prevUser = False
+    for index, (id, message) in enumerate(reversed(history)):
         if id == bot.user.id:
+            if index == 0:
+                continue
             result.append(
                 {
                     "role": "assistant",
                     "content": message
                 },
             )
+            prevUser = False
         else:
             username = await get_member_handle(guild, id)
+            if prevUser:
+                result.append(
+                    {
+                        "role": "assistant",
+                        "content": ""
+                    }
+                )
             result.append(
                 {
                     "role": "user",
                     "content": f"[{username}] " + message
                 },
             )
+            prevUser = True
 
     return result
 
