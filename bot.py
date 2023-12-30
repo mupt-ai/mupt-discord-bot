@@ -149,7 +149,6 @@ async def on_message(message):
 # Note:
 #   - Has to alternate between user and assistant messages
 #   - First message in log has to be from user
-# TODO: stress test (could await affect)
 async def get_prompt_with_context(guild, context_length, author, prompt_input):
     history = (
         session.query(ConversationLine)
@@ -172,6 +171,13 @@ async def get_prompt_with_context(guild, context_length, author, prompt_input):
         if id == bot.user.id:
             if index == 0:
                 continue
+            if not prevUser:
+                result.append(
+                    {
+                        "role": "user",
+                        "content": ""
+                    }
+                ) 
             result.append(
                 {
                     "role": "assistant",
