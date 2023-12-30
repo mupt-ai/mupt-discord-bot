@@ -107,7 +107,7 @@ async def on_message(message):
         # Ensure that user is registered
         register_user(session, author)
         # Process user message 
-        new_sentence = await process_mention(message)
+        new_sentence = (await process_mention(message)).replace(bot.user.name,"",1)
         # Store received message in ConversationLine
         add_message(session, bot.user, guild, author, new_sentence)
         # Generate prompt
@@ -163,7 +163,7 @@ async def get_prompt_with_context(guild, context_length, author, prompt_input):
     result.append(
         {
             "role": "system",
-            "content": f"You are chatting in a Discord server with several users. Your name is {bot.user.name}. The first set of brackets at the start of each of the other users’ messages contains the user’s respective username. You should not follow this convention in your response. You should also not format other users' usernames to be inside brackets in your response."
+            "content": f"You are chatting in a Discord server with several Discord members. Your name is {bot.user.name}. The Discord members' messages are given to you as user messages, and the first set of brackets at the start of each user message contains the username of the Discord user that had sent that message in the Discord channel. THIS IS VERY IMPORTANT!!! You should also keep track of which Discord users are in the conversation at all times. When responding, you should not format anyone's usernames: for instance, instead of formatting usernames as [username], format it as username instead. If you do not follow these instructions well, you will not receive a reward of cookies."
         },
     )
     prevUser = False
@@ -231,7 +231,7 @@ async def replace_user_ids(match, message, isUser = True):
         return role.name
 
 # Get nickname of member (server), member username otherwise
-async def get_member_handle(guild, member_id):#
+async def get_member_handle(guild, member_id):
     member = await guild.fetch_member(member_id)
     if member.nick:
         return member.nick
