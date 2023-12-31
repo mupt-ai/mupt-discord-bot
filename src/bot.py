@@ -35,9 +35,10 @@ intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="/", intents=intents)
 
 class MuptBot:
-    def __init__(self, token): 
-        global bot_token
+    def __init__(self, token, key): 
+        global bot_token, inference_key
         bot_token = token
+        inference_key = key
     def run(self):
         global bot_token
         bot.run(bot_token)
@@ -57,7 +58,7 @@ async def prompt(interaction: discord.Interaction, input: str):
             "content": input 
         },
     ]
-    response = (await inference.fireworks.generate_response(result))["choices"][0]["message"]["content"]
+    response = (await inference.fireworks.generate_response(result, inference_key))["choices"][0]["message"]["content"]
     await interaction.response.send_message(response)
 
 # Manually register server to database
@@ -122,7 +123,7 @@ async def on_message(message):
         print(prompt_input)
         print("\n")
         # Generate, send, and store response
-        response = (await inference.fireworks.generate_response(prompt_input))["choices"][0]["message"]["content"]
+        response = (await inference.fireworks.generate_response(prompt_input, inference_key))["choices"][0]["message"]["content"]
         print(response)
         print("\n")
         await message.channel.send(response)

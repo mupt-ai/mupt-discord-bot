@@ -2,10 +2,9 @@ import requests
 import os
 import json
 
-fireworks_key = os.environ["FIREWORKS_CLIENT_API_KEY"]
 url = "https://api.fireworks.ai/inference/v1/chat/completions"
 
-async def generate_response(prompt_input):
+async def generate_response(prompt_input, fireworks_key):
     payload = {
         "messages": prompt_input,
         "temperature": 1,
