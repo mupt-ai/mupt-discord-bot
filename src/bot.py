@@ -6,6 +6,7 @@
 import os, re, asyncio
 from dataclasses import dataclass
 from collections import defaultdict 
+from dotenv import load_dotenv
 
 from sqlalchemy     import Column, Integer, String, DateTime, ForeignKey, MetaData, select
 
@@ -14,14 +15,12 @@ from discord.ext    import commands, tasks
 from discord        import app_commands
 from discord.utils  import get
 
+# Env setup
+load_dotenv()
+
 from sql.models import *
 from sql.utility import *
 import inference.fireworks
-
-######################################################
-
-# Bot Token
-BOT_TOKEN = "MTE4ODcxNTY3NjIxMTM1MTYwMg.GB-B9f.aMYBmQA7X870YdC3ZihzvNkfe9iWHZ0kFVI5MI"
 
 ######################################################
 
@@ -31,10 +30,17 @@ BOT_TOKEN = "MTE4ODcxNTY3NjIxMTM1MTYwMg.GB-B9f.aMYBmQA7X870YdC3ZihzvNkfe9iWHZ0kF
 
 # SQL setup
 engine, session = setup(True)
-
 # Bot setup
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="/", intents=intents)
+
+class MuptBot:
+    def __init__(self, token): 
+        global bot_token
+        bot_token = token
+    def run(self):
+        global bot_token
+        bot.run(bot_token)
 
 ######################################################
 
@@ -163,7 +169,7 @@ async def get_prompt_with_context(guild, context_length, author, prompt_input):
     result.append(
         {
             "role": "system",
-            "content": f"You are chatting in a Discord server with several Discord members. Your name is {bot.user.name}. The Discord members' messages are given to you as user messages, and the first set of brackets at the start of each user message contains the username of the Discord user that had sent that message in the Discord channel. THIS IS VERY IMPORTANT!!! You should also keep track of which Discord users are in the conversation at all times. When responding, you should not format anyone's usernames: for instance, instead of formatting usernames as [username], format it as username instead. If you do not follow these instructions well, you will not receive a reward of cookies."
+            "content": f"You are chatting in a Discord server with several Discord members. Your name is {bot.user.name}. The Discord members' messages are given to you as user messages, and the first set of brackets at the start of each user message contains the username of the Discord user that had sent that message in the Discord channel. THIS IS VERY IMPORTANT!!! You should also keep track of which Discord users are in the conversation at all times. When responding, you should NEVER format anyone's usernames: for instance, instead of formatting usernames as [username], format it as username instead. If you do not follow these instructions well, you will NOT receive a reward of cookies."
         },
     )
     prevUser = False
@@ -236,10 +242,5 @@ async def get_member_handle(guild, member_id):
     if member.nick:
         return member.nick
     return member.name
-
-######################################################
-
-# Run the bot
-bot.run(BOT_TOKEN)
 
 ######################################################
