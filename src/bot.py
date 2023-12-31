@@ -33,6 +33,8 @@ engine, session = setup(True)
 # Bot setup
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="/", intents=intents)
+# Set context length
+CONTEXT_LENGTH = 5
 
 class MuptBot:
     def __init__(self, token, key): 
@@ -118,7 +120,7 @@ async def on_message(message):
         # Store received message in ConversationLine
         add_message(session, bot.user, guild, author, new_sentence)
         # Generate prompt
-        prompt_input = await get_prompt_with_context(message.guild, 10, author, new_sentence)
+        prompt_input = await get_prompt_with_context(message.guild, CONTEXT_LENGTH, author, new_sentence)
         print("\n")
         print(prompt_input)
         print("\n")
