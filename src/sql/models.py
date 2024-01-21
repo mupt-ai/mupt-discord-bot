@@ -30,16 +30,17 @@ class Server(Base):
     __tablename__ = 'servers'
     id = Column(Integer, primary_key=True)
     name = Column(String(255), nullable=False)
-    discord_id = Column(BigInteger, nullable=False, unique=True)
+    discord_id = Column(BigInteger, nullable=False)
+    channel_id = Column(BigInteger, nullable=False, unique=True)
 
     def __repr__(self) -> str:
-        return f"Server(id={self.id!r}, name={self.name!r}, discord_id={self.discord_id!r})"
+        return f"Server(id={self.id!r}, name={self.name!r}, discord_id={self.discord_id!r}, channel_id={self.channel_id!r})"
 
 class ConversationLine(Base):
     __tablename__ = 'conversation_lines'
     id = Column(Integer, primary_key=True)
     bot = Column(BigInteger, ForeignKey('bots.discord_id'))
-    server = Column(BigInteger, ForeignKey('servers.discord_id'))
+    channel = Column(BigInteger, ForeignKey('servers.channel_id'))
     sender = Column(BigInteger, nullable=False)
     message = Column(String(2048), nullable=False)
     timestamp = Column(DateTime, default=datetime.utcnow)

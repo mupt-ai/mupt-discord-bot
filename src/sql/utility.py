@@ -106,11 +106,25 @@ def register_server(session: session.Session, server: discord.guild.Guild):
         return True
     return False 
 
-def add_message(session: session.Session, bot: discord.user.ClientUser,
-                server: discord.guild.Guild, sender, message: str):
+def check_channel_registered(session: session.Session, channel: discord.channel.TextChannel):
+    return session.query(Server).filter_by(channel_id=channel.id).first() is not None
+
+def register_channel(session: session.Session, server: discord.guild.Guild, channel: discord.channel.TextChannel):
+    entry = session.query(Server).filter_by(channel_id=channel.id).first()
+    if entry is None:
+        session.add(Server(name=server.name, discord_id=server.id, channel_id=channel.id))
+        session.commit()
+        return True
+    # Update to latest servername
+    if entry is not None and entry.name != server.name:
+        entry.name = server.name
+        session.commit()
+        return True
+    return False 
+
+def add_message(session: session.Session, bot: discord.user.ClientUser, channel: discord.channel.TextChannel, sender, message: str):
     try:
-        line = ConversationLine(bot=bot.id, server=server.id, 
-                            sender=sender.id, message=message)
+        line = ConversationLine(bot=bot.id, channel=channel.id, sender=sender.id, message=message)
         session.add(line)
         session.commit()
         return True

@@ -63,13 +63,13 @@ async def prompt(interaction: discord.Interaction, input: str):
     response = (await inference.fireworks.generate_response(result, inference_key))["choices"][0]["message"]["content"]
     await interaction.response.send_message(response)
 
-# Manually register server to database
-@bot.tree.command(name = "register_server_with_bot", description = "Register server with bot.")
-async def register_server_with_bot(interaction: discord.Interaction):
-    if register_server(session, interaction.guild):
-        await interaction.response.send_message("Successfully registered server.")
-    else:
-        await interaction.response.send_message("Server is already registered.")
+# # Manually register server to database
+# @bot.tree.command(name = "register_server_with_bot", description = "Register server with bot.")
+# async def register_server_with_bot(interaction: discord.Interaction):
+#     if register_server(session, interaction.guild):
+#         await interaction.response.send_message("Successfully registered server.")
+#     else:
+#         await interaction.response.send_message("Server is already registered.")
 
 ##############
 # BOT EVENTS #
@@ -86,10 +86,11 @@ async def on_ready():
 
 @bot.event
 async def on_guild_join(guild):
-    # Register server to database
-    register_server(session, guild)
+    # # Register server to database
+    # register_server(session, guild)
     system_channel = guild.system_channel
-    await system_channel.send(f"{bot.user.name} has been added to the server!")
+    print(f"{bot.user.name} has been added to {system_channel.name}")
+    # await system_channel.send(f"{bot.user.name} has been added to the server!")
 
 @bot.event
 async def on_member_update(before, after):
@@ -99,6 +100,7 @@ async def on_member_update(before, after):
 
 @bot.event
 async def on_guild_update(before, after):
+    # TODO updates servers
     register_server(session, after)
     print("Updated server entry")
 
@@ -111,16 +113,17 @@ async def on_message(message):
     if bot.user.mention in message.content:
         guild = message.guild 
         author = message.author
-        # Make sure that server is registered
-        register_server(session, guild)
+        channel = message.channel
+        # Make sure that server and channels are registered
+        register_channel(session, guild, channel)
         # Ensure that user is registered
         register_user(session, author)
         # Process user message 
         new_sentence = (await process_mention(message)).replace(bot.user.name,"",1)
         # Store received message in ConversationLine
-        add_message(session, bot.user, guild, author, new_sentence)
+        add_message(session, bot.user, channel, author, new_sentence)
         # Generate prompt
-        prompt_input = await get_prompt_with_context(message.guild, CONTEXT_LENGTH, author, new_sentence)
+        prompt_input = await get_prompt_with_context(guild, channel, CONTEXT_LENGTH, author, new_sentence)
         print("\n")
         print(prompt_input)
         print("\n")
@@ -129,7 +132,7 @@ async def on_message(message):
         print(response)
         print("\n")
         await message.channel.send(response)
-        add_message(session, bot.user, guild, bot.user, response)
+        add_message(session, bot.user, channel, bot.user, response)
     # Process other commands if needed
     # await bot.process_commands(message)
 
@@ -158,10 +161,10 @@ async def on_message(message):
 # Note:
 #   - Has to alternate between user and assistant messages
 #   - First message in log has to be from user
-async def get_prompt_with_context(guild, context_length, author, prompt_input):
+async def get_prompt_with_context(guild, channel, context_length, author, prompt_input):
     history = (
         session.query(ConversationLine)
-        .filter_by(bot=bot.user.id, server=guild.id)
+        .filter_by(bot=bot.user.id, channel=channel.id)
         .order_by(ConversationLine.timestamp.desc())
         .limit(context_length)
         .all()
