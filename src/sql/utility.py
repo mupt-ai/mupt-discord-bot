@@ -64,9 +64,29 @@ def setup(echo):
 ###################
 
 def check_user_registered(session: session.Session, user: discord.member.Member):
+    """
+    Check if a Discord user is registered in the database.
+
+    Args:
+        session (session.Session): The database session.
+        user (discord.member.Member): The Discord user to check.
+
+    Returns:
+        bool: True if the user is registered, False otherwise.
+    """
     return session.query(User).filter_by(discord_id=user.id).first() is not None
 
 def register_user(session: session.Session, user: discord.member.Member):
+    """
+    Register a new Discord user in the database if not already registered.
+
+    Args:
+        session (session.Session): The database session.
+        user (discord.member.Member): The Discord user to register.
+
+    Returns:
+        bool: True if the user was newly registered, False if already registered.
+    """
     if not check_user_registered(session, user):
         session.add(User(discord_id=user.id))
         session.commit()
@@ -74,16 +94,36 @@ def register_user(session: session.Session, user: discord.member.Member):
     return False 
 
 def check_bot_registered(session: session.Session, bot: discord.user.ClientUser):
+    """
+    Check if a Discord bot is registered in the database.
+
+    Args:
+        session (session.Session): The database session.
+        bot (discord.user.ClientUser): The Discord bot to check.
+
+    Returns:
+        bool: True if the bot is registered, False otherwise.
+    """
     return session.query(Bot).filter_by(discord_id=bot.id).first() is not None
 
 def register_bot(session: session.Session, bot: discord.user.ClientUser):
+    """
+    Register a new Discord bot in the database or update its information (user string and username) if already registered.
+
+    Args:
+        session (session.Session): The database session.
+        bot (discord.user.ClientUser): The Discord bot to register or update.
+
+    Returns:
+        bool: True if the bot was newly registered or its information was updated, False otherwise.
+    """
     entry = session.query(Bot).filter_by(discord_id=bot.id).first()
     if entry is None:
         session.add(Bot(user=str(bot), username=bot.name, discord_id=bot.id))
         session.commit()
         return True
-    # Update to latest username
-    if entry is not None and entry.username != bot.name:
+    # Check if need to update to latest username
+    if entry.username != bot.name:
         entry.user = str(bot)
         entry.username = bot.name
         session.commit()
@@ -91,38 +131,105 @@ def register_bot(session: session.Session, bot: discord.user.ClientUser):
     return False
 
 def check_server_registered(session: session.Session, server: discord.guild.Guild):
+    """
+    Check if a Discord server is registered in the database.
+
+    Args:
+        session (session.Session): The database session.
+        server (discord.guild.Guild): The Discord server to check.
+
+    Returns:
+        bool: True if the server is registered, False otherwise.
+    """
     return session.query(Server).filter_by(discord_id=server.id).first() is not None
 
 def register_server(session: session.Session, server: discord.guild.Guild):
+    """
+    Register a new Discord server in the database or update its information if already registered.
+
+    Args:
+        session (session.Session): The database session.
+        server (discord.guild.Guild): The Discord server to register or update.
+
+    Returns:
+        bool: True if the server was newly registered or its information was updated, False otherwise.
+    """
     entry = session.query(Server).filter_by(discord_id=server.id).first()
     if entry is None:
         session.add(Server(name=server.name, discord_id=server.id))
         session.commit()
         return True
-    # Update to latest servername
-    if entry is not None and entry.name != server.name:
+    # Check if need to update to latest servername
+    if entry.name != server.name:
         entry.name = server.name
         session.commit()
         return True
     return False 
 
 def check_channel_registered(session: session.Session, channel: discord.channel.TextChannel):
+    """
+    Check if a Discord channel is registered in the database.
+
+    This function checks if there's a Server entry in the database with a matching channel_id.
+    Note that this checks the Server table, not a separate Channel table.
+
+    Args:
+        session (session.Session): The database session.
+        channel (discord.channel.TextChannel): The Discord channel to check.
+
+    Returns:
+        bool: True if a server with this channel_id is registered, False otherwise.
+    """
     return session.query(Server).filter_by(channel_id=channel.id).first() is not None
 
 def register_channel(session: session.Session, server: discord.guild.Guild, channel: discord.channel.TextChannel):
+    """
+    Register a new Discord channel in the database or update server information if the channel is already registered.
+
+    This function adds a new Server entry with the given channel_id if it doesn't exist,
+    or updates the server name if the channel is already registered but the server name has changed.
+
+    Args:
+        session (session.Session): The database session.
+        server (discord.guild.Guild): The Discord server associated with the channel.
+        channel (discord.channel.TextChannel): The Discord channel to register.
+
+    Returns:
+        bool: True if a new entry was added or an existing entry was updated, False if no changes were needed.
+    """
     entry = session.query(Server).filter_by(channel_id=channel.id).first()
     if entry is None:
         session.add(Server(name=server.name, discord_id=server.id, channel_id=channel.id))
         session.commit()
         return True
-    # Update to latest servername
-    if entry is not None and entry.name != server.name:
+    # Check if need to update to latest servername
+    if entry.name != server.name:
         entry.name = server.name
         session.commit()
         return True
     return False 
 
 def add_message(session: session.Session, bot: discord.user.ClientUser, channel: discord.channel.TextChannel, sender, message: str):
+    """
+    Add a new message to the conversation log in the database.
+
+    This function creates a new ConversationLine entry with the provided message details
+    and adds it to the database.
+
+    Args:
+        session (session.Session): The database session.
+        bot (discord.user.ClientUser): The Discord bot associated with the message.
+        channel (discord.channel.TextChannel): The Discord channel where the message was sent.
+        sender: The entity (user or bot) that sent the message. Should have an 'id' attribute.
+        message (str): The content of the message.
+
+    Returns:
+        bool: True if the message was successfully added to the database, False if an error occurred.
+
+    Note:
+        This function silently catches all exceptions and returns False in case of any error.
+        Consider adding logging for better error tracking.
+    """
     try:
         line = ConversationLine(bot=bot.id, channel=channel.id, sender=sender.id, message=message)
         session.add(line)
@@ -130,4 +237,6 @@ def add_message(session: session.Session, bot: discord.user.ClientUser, channel:
         return True
 
     except Exception as e:
+        # Consider adding logging here, e.g.:
+        # logging.error(f"Error adding message to database: {str(e)}")
         return False
