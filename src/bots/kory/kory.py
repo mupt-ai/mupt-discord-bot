@@ -24,15 +24,14 @@ client = OpenAI(
 # BOT-SPECIFIC PARAMETERS #
 ###########################
 
-from kory_character_prompt import compile_base_prompt 
+from bots.kory.kory_character_prompt import compile_base_prompt 
 
 from training_material.context import character_context 
-from training_material.transcript import selected_transcript_samples
-from training_material.q_and_a import question_answer_samples
+from training_material.sample_sentences import selected_sentence_samples
 
 token = os.environ["KORY_BOT_TOKEN"]
 context_length = os.environ["GENERAL_CONTEXT_LENGTH"]
-prompt = compile_base_prompt(character_context, selected_transcript_samples)
+prompt = compile_base_prompt(character_context, selected_sentence_samples)
 
 ###########################
 
