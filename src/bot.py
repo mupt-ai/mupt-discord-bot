@@ -22,7 +22,7 @@ import inference.chatgpt
 ########################################################################################
 
 class MuptBot:
-    def __init__(self, token, context_length, prompt):
+    def __init__(self, token, context_length, prompt, slash_enable):
         # SQL Setup - Initialize database connection and return engine and session
         self.engine, self.session = setup(True)
         # Bot Setup - Create discord bot with all intents enabled (all events bot can receive from Discord)
@@ -33,6 +33,8 @@ class MuptBot:
         self.context_length = context_length 
         # Prompt for Discord chat
         self.prompt = prompt
+        # Enabling slash commands for debugging
+        self.slash_enable = slash_enable
 
         self.define_bot_events_and_commands()
 
@@ -45,16 +47,17 @@ class MuptBot:
         # SLASH COMMANDS #
         ##################
 
-        # /prompt - Test prompting to make sure that inference is working
-        @self.bot.tree.command(name="prompt", description="Test prompting.")
-        async def prompt(interaction: discord.Interaction, input: str):
-            response = await inference.chatgpt.generate_response(input)
-            await interaction.response.send_message(response)
+        if self.slash_enable:
+            # /prompt - Test prompting to make sure that inference is working
+            @self.bot.tree.command(name="prompt", description="Test prompting.")
+            async def prompt(interaction: discord.Interaction, input: str):
+                response = await inference.chatgpt.generate_response(input)
+                await interaction.response.send_message(response)
 
-        # /speak - Have bot repeat input, for screenshots and input testing
-        @self.bot.tree.command(name="speak", description="Make bot speak manually.")
-        async def speak(interaction: discord.Interaction, input: str):
-            await interaction.response.send_message(input)
+            # /speak - Have bot repeat input, for screenshots and input testing
+            @self.bot.tree.command(name="speak", description="Make bot speak manually.")
+            async def speak(interaction: discord.Interaction, input: str):
+                await interaction.response.send_message(input)
 
         ##############
         # BOT EVENTS #

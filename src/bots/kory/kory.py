@@ -26,15 +26,15 @@ client = OpenAI(
 
 from bots.kory.kory_character_prompt import compile_base_prompt 
 
-from training_material.context import character_context 
+from training_material.context import character_descriptions
 from training_material.sample_sentences import selected_sentence_samples
 
 token = os.environ["KORY_BOT_TOKEN"]
 context_length = os.environ["GENERAL_CONTEXT_LENGTH"]
-prompt = compile_base_prompt(character_context, selected_sentence_samples)
+prompt = compile_base_prompt(character_descriptions, selected_sentence_samples)
 
 ###########################
 
 # Bot setup and run
-bot = MuptBot(token, context_length, prompt)
+bot = MuptBot(token, context_length, prompt, False)
 bot.run()
