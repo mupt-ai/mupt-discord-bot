@@ -293,9 +293,10 @@ async def replace_user_ids(match, message, isUser = True):
 
 # Get nickname of member (server), member username otherwise
 async def get_member_handle(guild, member_id):
-    member = await guild.fetch_member(member_id)
-    if member.nick:
-        return member.nick
-    return member.name
+    try:
+        member = await guild.fetch_member(member_id)
+        return member.nick if member.nick else member.name
+    except discord.errors.NotFound:
+        return f"Unknown User ({member_id})"
 
 ######################################################
