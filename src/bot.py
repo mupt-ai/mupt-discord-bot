@@ -217,5 +217,8 @@ class MuptBot:
 
     @staticmethod
     async def get_member_handle(guild, member_id):
-        member = await guild.fetch_member(member_id)
-        return member.nick if member.nick else member.name
+        try:
+            member = await guild.fetch_member(member_id)
+            return member.nick if member.nick else member.name
+        except:
+            return ""
