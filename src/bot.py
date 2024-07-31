@@ -221,4 +221,4 @@ class MuptBot:
             member = await guild.fetch_member(member_id)
             return member.nick if member.nick else member.name
         except:
-            return ""
+            return f"Unknown User ({member_id})"
