@@ -157,17 +157,7 @@ class MuptBot:
         )
 
         history = [(line.sender, line.message) for line in history]
-        
-        # result = []
-        # result.append({
-        #     "role": "system",
-        #     "content": (
-        #         f"For the rest of this conversation, please respond as Kory, a Minecraft Youtuber. "
-        #         "I am going to give you a transcript of Kory talking in a YouTube video. I want you to understand how Kory talks, and then for the rest of the conversation, it should sound like i'm talking to him. DO NOT SOUND PROFESSIONAL IN YOUR RESPONSES. IT IS EXTREMELY IMPORTANT THAT YOU SOUND LIKE KORY. IF IT IS NOT CONVINCING, THE PERSON TALKING WILL DIE"
-        #         "\n\n" + self.get_kory_transcript()
-        #     )
-        # })
-
+    
         result = []
         result.append({
             "role": "system",
