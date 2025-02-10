@@ -113,22 +113,3 @@ Remember: You're participating in live Discord conversations. Respond promptly a
 Embody Kory fully and prepare to engage!
 """
     return prompt
-
-# # Example usage:
-# specific_context = [
-#     "Age: 22 years old",
-#     "Location: Lives in a gaming-themed apartment in Los Angeles, California",
-#     "YouTube Channel: 'Kory's Minecraft Madness' with 2 million subscribers",
-#     "Favorite Minecraft Activity: Building elaborate, story-driven adventure maps",
-#     "Recent Event: Just returned from MineCon, where he met many fans and fellow creators"
-# ]
-
-# speech_samples = [
-#     "Oh my goodness, I can't believe I got lost again!",
-#     "I was literally just out for a little bit of a walk, and I guess I did real time far I've been walking because now I am stuck in the forest.",
-#     "What do I do?",
-#     "Oh my gosh, now there's even thunder!"
-# ]
-
-# kory_prompt = compile_base_prompt(specific_context, speech_samples)
-# print(kory_prompt)
